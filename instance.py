@@ -13,12 +13,13 @@ def dic_to_numpy(dic):
 
 
 if __name__ == "__main__":
+	
 	instance = "instances/kroA100.tsp"
 	data = read_tsp_data(instance)
 	nbCities = int(detect_dimension(data))
 	cities = read_tsp(nbCities, data)
 	print(f"Number of cities: {nbCities}")
-
+	'''
 	# Convert city coordinates to numpy format
 	positions = dic_to_numpy(cities)
 
@@ -57,4 +58,8 @@ if __name__ == "__main__":
 	plot_arbre(instance, list_of_edges_selected, cities) #On affiche l'ACPM
 
 	plot_arbre(instance, matching, cities) #On affiche le couplage de cout min du graphe induit
-	
+	'''
+	graph = CCTPGraph("instances/kroA100.tsp", k=20)
+	tsp_path = graph.christophides_solver()
+	print("Distance totale (Christofides) :", evaluation(tsp_path, graph.cities))
+	plottour(instance, tsp_path, graph.cities, blocked_edges=graph.blocked_edges)

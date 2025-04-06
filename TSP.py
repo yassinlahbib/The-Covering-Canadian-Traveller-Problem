@@ -73,7 +73,7 @@ def evaluation(individu,cities):
 
 #Function to a display a tour
 
-def plottour(instance,individu,cities):
+def plottour(instance,individu,cities,blocked_edges=None):
 	plt.figure(figsize=(8, 10), dpi=100)  
 	plt.title('Traveling Salesman : ' + instance)
 	for point in cities.values():
@@ -81,9 +81,9 @@ def plottour(instance,individu,cities):
 	x=[]
 	y=[]
 	for i in range(0, len(individu)):
-		print(f"{cities=}")
-		print(individu[i])
-		print(cities.get(individu[i]))
+		# print(f"{cities=}")
+		# print(individu[i])
+		# print(cities.get(individu[i]))
 		x.append(cities.get(individu[i])[0])
 		y.append(cities.get(individu[i])[1])
 
@@ -92,6 +92,13 @@ def plottour(instance,individu,cities):
 	y.append(cities.get(individu[0])[1])
 
 	plt.plot(x,y,color='black', lw=1)
+
+			# dessiner les arêtes bloquées (en bleu)
+	if blocked_edges:
+		for u, v in blocked_edges:
+			x_vals = [cities[u][0], cities[v][0]]
+			y_vals = [cities[u][1], cities[v][1]]
+			plt.plot(x_vals, y_vals, color='blue', lw=1, linestyle='dashed', label='Blocked edge')
 	
 	#plt.ion()
 	plt.show()
