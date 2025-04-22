@@ -14,16 +14,18 @@ class CCTPGraph:
 		self.cities = self._load_cities()
 		self.n = len(self.cities)
 		self.blocked_edges = self._generate_blocked_edges()
+		print(f"{self.k} blocked edges generated: {self.blocked_edges}")
 		self.known_edges = {}  # (i,j) → 'open' or 'blocked'
 
 		cities_numpy = self.dic_to_numpy(self.cities)
 		self.distance_matrix = cdist(cities_numpy, cities_numpy) # Compute Euclidean distance matrix (i,j) corresponding cost of edge. because complete graph
 		self.distance_matrix[self.distance_matrix == 0] = np.inf  # replace diagonals with +inf
 
-		# Appliquer les arêtes bloquées
-		for i, j in self.blocked_edges:
-			self.distance_matrix[i][j] = np.inf
-			self.distance_matrix[j][i] = np.inf
+		# J'ai mis les lignes suivants en commentaires car Christophidesn'est pas censé prendre en compte les arêtes bloquées
+		# # Appliquer les arêtes bloquées 
+		# for i, j in self.blocked_edges:
+		# 	self.distance_matrix[i][j] = np.inf
+		# 	self.distance_matrix[j][i] = np.inf
 
 		assert (self.k < self.n -1) #on doit avoir au plus k blocages avec k < n-1
 
@@ -72,6 +74,7 @@ class CCTPGraph:
 
 	def is_blocked(self, i, j):
 		edge = tuple(sorted((i, j)))
+		print(f"{self.known_edges.get(edge)}")
 		return self.known_edges.get(edge) == 'blocked'
 
 	def is_open(self, i, j):
