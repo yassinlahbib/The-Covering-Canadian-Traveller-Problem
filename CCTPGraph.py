@@ -6,15 +6,31 @@ from scipy.optimize import linear_sum_assignment
 from collections import defaultdict
 import networkx as nx
 
+DEBUG = False
+
+if DEBUG:
+    def debug_print(*args, **kwargs):
+        print(*args, **kwargs)
+else:
+    def debug_print(*args, **kwargs):
+        pass
 
 class CCTPGraph:
-	def __init__(self, tsp_file, k=10):
-		self.tsp_file = tsp_file
+	def __init__(self, tsp_file=None, cities=None, k=10):
 		self.k = k
-		self.cities = self._load_cities()
+		
+		if cities is not None: #Création a partir de coordonnée numpy directement
+			self.cities = {i: cities[i] for i in range(len(cities))}  # positions données
+		elif tsp_file is not None: #Création a partir d'un fichier tsp
+			self.tsp_file = tsp_file		
+			self.cities = self._load_cities()
+		else : 
+			raise ValueError("Il faut soit un fichier tsp_file, soit des positions cities !")
+
 		self.n = len(self.cities)
+
 		self.blocked_edges = self._generate_blocked_edges()
-		print(f"{self.k} blocked edges generated: {self.blocked_edges}")
+		debug_print(f"{self.k} blocked edges generated: {self.blocked_edges}")
 		self.known_edges = {}  # (i,j) → 'open' or 'blocked'
 
 		cities_numpy = self.dic_to_numpy(self.cities)
@@ -29,6 +45,13 @@ class CCTPGraph:
 
 		assert (self.k < self.n -1) #on doit avoir au plus k blocages avec k < n-1
 
+
+
+	def is_accessible(self, i, j):
+		""" Retourne True si l'arête (i, j) est connue et ouverte """
+		edge = tuple(sorted((i, j)))
+		return self.known_edges.get(edge) == 'open'
+	
 	def dic_to_numpy(self, dic):
 		""" Convert dictionary of positions to a numpy array """
 		res = []
@@ -74,17 +97,30 @@ class CCTPGraph:
 
 	def is_blocked(self, i, j):
 		edge = tuple(sorted((i, j)))
-		print(f"{self.known_edges.get(edge)}")
+		debug_print(f"{self.known_edges.get(edge)}")
 		return self.known_edges.get(edge) == 'blocked'
 
 	def is_open(self, i, j):
 		edge = tuple(sorted((i, j)))
 		return self.known_edges.get(edge) == 'open'
 	
-	def christophides_solver(self):
+	def christophides_solver(self, connaissance_blocages=False):
 		""" applique l'algo de christophides sur notre instance """
-		self.christophides = Christophides(self.distance_matrix)
-		return self.christophides.launch()
+		
+
+
+		if connaissance_blocages:
+			matrix_with_blocked_edges = self.distance_matrix.copy()
+			for i, j in self.blocked_edges:
+				matrix_with_blocked_edges[i][j] = np.inf
+				matrix_with_blocked_edges[j][i] = np.inf
+			self.christophides = Christophides(matrix_with_blocked_edges)
+			return self.christophides.launch()
+		
+		else:
+			self.christophides = Christophides(self.distance_matrix)
+			return self.christophides.launch()
+
 
 	
 #Pour le moment je n'ai pas pris en compte les blocages, dans un premier temps je me concentre principalemnt sur l'algo de cgristophides
@@ -120,7 +156,7 @@ class Christophides():
 			min_cost = np.inf #on cherche l'arete de cout min reliant les sommets selectionnés à ceux non séléctionnés
 			for i in selected:
 				if verbose:
-					print(f"{selected=}")
+					debug_print(f"{selected=}")
 				for j in not_selected:
 					cost_i_j = self.distance_matrix[i][j]
 					if cost_i_j < min_cost: #plus petit cout vu actuellement
@@ -128,8 +164,8 @@ class Christophides():
 						s = j #sommet courant à ajouter dans l'ACPM
 						f = i #pere courant de s
 			if verbose:
-				print(f"sommet ajouté: {s}")
-				print(f"aretes ajoutée: {list_of_edges_selected=}")
+				debug_print(f"sommet ajouté: {s}")
+				debug_print(f"aretes ajoutée: {list_of_edges_selected=}")
 
 			#Maj dic T (nouvelle aretes entre s et f)
 			T[f].append(s)
@@ -141,7 +177,7 @@ class Christophides():
 		
 		self.T = T
 		self.list_of_edges_selected = list_of_edges_selected
-		print("\nACPM :\n","T= ",T, "\nlist_of_edges_selected= ", list_of_edges_selected)
+		debug_print("\nACPM :\n","T= ",T, "\nlist_of_edges_selected= ", list_of_edges_selected)
 		return list_of_edges_selected, T
 	
 	def odd_degree_vertex(self):
@@ -162,7 +198,7 @@ class Christophides():
 				odd_degree.append(key)
 
 		self.odd_degree = odd_degree
-		print("\n ",len(self.odd_degree),"odd_degree_vertex find:\n", self.odd_degree)
+		debug_print("\n ",len(self.odd_degree),"odd_degree_vertex find:\n", self.odd_degree)
 		return odd_degree
 
 	def inducted_distance_matrix(self):
@@ -174,7 +210,7 @@ class Christophides():
 		#créer la matrice de distance entre chaque points seulemnt des sommets de degré impaire
 		inducted_distance_matrix = self.distance_matrix[np.ix_(self.odd_degree, self.odd_degree)] #matrix size = (len(self.odd_degree), len(self.odd_degree))
 		self.inducted_distance_matrix = inducted_distance_matrix
-		print("\ninducted distance matrix find:\nsize=",self.inducted_distance_matrix.shape,"\n", self.inducted_distance_matrix)
+		debug_print("\ninducted distance matrix find:\nsize=",self.inducted_distance_matrix.shape,"\n", self.inducted_distance_matrix)
 		return inducted_distance_matrix
 
 	def minimum_weight_perfect_matching(self):
@@ -186,7 +222,7 @@ class Christophides():
 					G.add_edge(u,v, weight=w_uv)
 		
 		matching = matching = nx.min_weight_matching(G)
-		print("\n\nminimum_weight_perfect_matching:\n", matching)
+		debug_print("\n\nminimum_weight_perfect_matching:\n", matching)
 		self.matching = list(matching)
 		return self.matching
 	
@@ -217,7 +253,7 @@ class Christophides():
 	def union_matching_ACPM(self):
 		'''
 		self.list_union_matching_ACPM = self.list_of_edges_selected + self.matching
-		print("union_matching_ACPM:\n", self.list_union_matching_ACPM)
+		debug_print("union_matching_ACPM:\n", self.list_union_matching_ACPM)
 		'''
 		""" Combine les arêtes de l’ACPM et du couplage pour former un multigraphe eulérien """
 		self.merged_graph = defaultdict(list)
@@ -262,8 +298,8 @@ class Christophides():
 		self.ACPM() #Pour le moment seulement ACPM de codé
 		self.odd_degree_vertex()
 		self.inducted_distance_matrix()
-		# self.minimum_weight_perfect_matching()
-		self.get_min_weight_perfect_matching()
+		self.minimum_weight_perfect_matching()
+		#self.get_min_weight_perfect_matching()
 		self.union_matching_ACPM()
 		self.euler_tour()
 		self.euler_to_hamiltonian()
